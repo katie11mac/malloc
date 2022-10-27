@@ -1,9 +1,13 @@
-my-malloc: my-malloc.o
+my-malloc.so: my-malloc.c
 	gcc -g -Wall -pedantic -rdynamic -shared -fPIC -o my-malloc.so my-malloc.c
 
-LD_PRELOAD=./my-malloc.so ls
+.PHONY: run
+run: my-malloc.so
+	LD_PRELOAD=./my-malloc.so ls
 
-gdb --args env LD_PRELOAD=./my-malloc.so ./test-malloc
+.PHONY: debug
+debug: my-malloc.so test-malloc
+	gdb --args env LD_PRELOAD=./my-malloc.so ./test-malloc
 
 .PHONY: clean
 clean:
