@@ -9,12 +9,27 @@
 #include <stdint.h>
 #include <stddef.h>
 #include <string.h>
+#include <limits.h> // need for printing size_t
 
 #define INCREMENT_BY 48
+#define STRUCT_SIZE 32
 static void * begin_ptr = NULL; // starts as NULL so know when heap has not been intialized
 
+/*
+* struct for allocation information for each chunk of data in heap
+*/
+struct alloc_info
+{
+    size_t size;
+    struct alloc_info *prev_info;
+    struct alloc_info *next_info;
+};
+
 char * pointer_to_hex_le(void *ptr);
+char *uint64_to_string(uint64_t n);
 void * malloc(size_t size);
+struct alloc_info * create_struct(void * starting_address, size_t size, struct alloc_info *next_info, struct alloc_info *prev_info); 
+
 
 int main(int argc, char * argv[]){
 
@@ -24,25 +39,14 @@ int main(int argc, char * argv[]){
 }
 
 /*
-* struct for allocation information for each chunk of data in heap
-*/
-struct alloc_info
-{
-    size_t size;
-    struct alloc_info *next_info;
-    struct alloc_info *prev_info;
-};
-
-/*
 * Malloc function: allocate size bytes and return a pointer to the allocated memory (not intialized)
 */
 void * malloc(size_t size)
 {
     //round size to be divisible by 16
     size_t aligned_size; 
-    char * sbrk_val, string1;
-
-    string1 = "wohooo";
+    struct alloc_info * metadata; 
+    char * sbrk_val;
 
     aligned_size = (size/16 + 1)*16;
 
@@ -55,10 +59,13 @@ void * malloc(size_t size)
         write(1, sbrk_val, 16);
         write(1,"\n",sizeof("\n"));
 
-        sbrk_val = sbrk(INCREMENT_BY);
-
+        sbrk_val = sbrk(INCREMENT_BY); // set this to sbrk_val to see what is stored there
+        
         sbrk_val = pointer_to_hex_le(sbrk(0));
         write(1, sbrk_val, 16);
+        write(1,"\n",sizeof("\n"));
+
+        metadata = create_struct(begin_ptr, size, NULL, NULL); 
 
         /*
         *begin_ptr = 12;
@@ -78,6 +85,33 @@ void * malloc(size_t size)
 
     return begin_ptr;
 
+}
+
+struct alloc_info * create_struct(void * starting_address, size_t size, struct alloc_info *prev_info, struct alloc_info *next_info)
+{
+    
+    struct alloc_info **pointer_math; 
+
+    *((size_t*)starting_address) = size;
+
+    write(1, pointer_to_hex_le(starting_address), 16);
+    write(1, "= starting address \n starting address+8 =", sizeof("= starting address \n starting address+8 ="));
+    pointer_math = ((size_t*)(starting_address)) + 1;
+    write(1, pointer_to_hex_le(pointer_math), 16);
+    write(1,"\n",sizeof("\n"));
+
+    // *((struct alloc_info**) pointer_math) = next_info;
+
+    
+
+
+    // struct alloc_info *metadata = (struct alloc_info *) starting_address; 
+    // write(1, uint64_to_string(metadata->size), 8); 
+    write(1,"\n",sizeof("\n"));
+    //pointer_math = ((struct alloc_info**)(starting_address)) + 1;
+    // write(1, pointer_to_hex_le(metadata->prev_info), 16);
+    // write(1, pointer_to_hex_le(metadata->next_info), 16);
+    return metadata; 
 }
 
 /*
@@ -111,4 +145,34 @@ char * pointer_to_hex_le(void *ptr)
     hex[sizeof(ptr) * 2] = '\0';
 
     return hex;
+}
+
+/*
+ * uint64_to_string.c
+ *
+ * Converts a unsigned 64-bit integer to a printable string.
+ *
+ *    $ gcc -g -Wall -pedantic -o foo foo.c
+ *    $ ./foo
+ *    1234 is 1234
+ *    4321 is 4321
+ *    0 is 0
+ *    2147483646 is 2147483646
+ *
+ */
+
+char *
+uint64_to_string(uint64_t n)
+{
+    static char s[32] = "0000000000000000000000000000000\0";
+    int i;
+
+    for(i=30; i>0; i--) {
+        s[i] = (n % 10) + '0';
+        n = n / 10;
+        if(n == 0)
+            break;
+    }
+
+    return &s[i];
 }
