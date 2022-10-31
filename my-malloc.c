@@ -13,7 +13,15 @@
 
 #define INCREMENT_BY 48
 #define STRUCT_SIZE 32
-static void * begin_ptr = NULL; // starts as NULL so know when heap has not been intialized
+#define ALIGN_BY 16
+static void *HEAP_BEGIN_PTR = NULL; // starts as NULL to know when heap has not been intialized
+static struct alloc_info *FIRST_STRUCT = NULL; 
+
+void *malloc(size_t size);
+struct alloc_info *create_struct(void *starting_address, size_t size, struct alloc_info *next_info, struct alloc_info *prev_info); 
+void increment_heap(size_t aligned_size, int space_left); 
+char *pointer_to_hex_le(void *ptr); // delete
+char *uint64_to_string(uint64_t n);
 
 /*
 * struct for allocation information for each chunk of data in heap
@@ -25,13 +33,7 @@ struct alloc_info
     struct alloc_info *next_info;
 };
 
-char * pointer_to_hex_le(void *ptr);
-char *uint64_to_string(uint64_t n);
-void * malloc(size_t size);
-struct alloc_info * create_struct(void * starting_address, size_t size, struct alloc_info *next_info, struct alloc_info *prev_info); 
-
-
-int main(int argc, char * argv[]){
+int main(int argc, char *argv[]){
 
     malloc(9);
 
@@ -43,75 +45,98 @@ int main(int argc, char * argv[]){
 */
 void * malloc(size_t size)
 {
-    //round size to be divisible by 16
-    size_t aligned_size; 
-    struct alloc_info * metadata; 
-    char * sbrk_val;
+    size_t aligned_request_size; 
+    struct alloc_info *metadata;
+    char *sbrk_val;
+    int space_left; // SHOULD THERE BE A MAX / HOW DO YOU KNOW WHEN YOU'VE REACHED MAX? 
 
-    aligned_size = (size/16 + 1)*16;
+    // Relevant info to the loop
+    struct alloc_info *next_alloc_ptr, *curr_alloc_ptr; 
+    int space_available; 
+    size_t curr_align_size; 
 
-    //Case 0: heap has not been intialized (begin_ptr == NULL)
-    if(begin_ptr == NULL)
+    aligned_request_size = (size/ALIGN_BY + 1) * ALIGN_BY; //round size to be divisible by 16
+
+    // Case 0: Heap has not been intialized
+    if(HEAP_BEGIN_PTR == NULL)
     {
-        begin_ptr = sbrk(0);
+        HEAP_BEGIN_PTR = sbrk(0);
+            
+        increment_heap(aligned_request_size, 0); 
 
-        sbrk_val = pointer_to_hex_le(begin_ptr);
-        write(1, sbrk_val, 16);
-        write(1,"\n",sizeof("\n"));
-
-        sbrk_val = sbrk(INCREMENT_BY); // set this to sbrk_val to see what is stored there
-        
-        sbrk_val = pointer_to_hex_le(sbrk(0));
-        write(1, sbrk_val, 16);
-        write(1,"\n",sizeof("\n"));
-
-        metadata = create_struct(begin_ptr, size, NULL, NULL); 
-
-        /*
-        *begin_ptr = 12;
-        *(begin_ptr+1) = 14;
-
-        struct foo *fp = (struct food *) begin_ptr;
-        */
+        metadata = create_struct(HEAP_BEGIN_PTR, size, NULL, NULL); 
+        FIRST_STRUCT = metadata; 
+        return FIRST_STRUCT + STRUCT_SIZE; 
     }
 
-    //Case 1: heap has been initialized
+    //Case 1: Heap has been initialized
+    else
+    {
+        //metadata may not be initialized, so maybe start at the first allocation, which is HEAP_BEGIN_PTR
+        // what if the person frees the HEAP_BEGIN_PTR 
+        curr_alloc_ptr = FIRST_STRUCT; 
+        next_alloc_ptr = FIRST_STRUCT->next_info; 
+        
+        //iterate through every struct
+        while(next_alloc_ptr != NULL)
+        {
+            curr_align_size = (curr_alloc_ptr->size/ALIGN_BY + 1) * ALIGN_BY;
+            space_available = ((next_alloc_ptr - curr_alloc_ptr) - STRUCT_SIZE) - curr_align_size;
+            
+             //Case 1a: there is size in our heap to allocate the chunk between
+            if(space_available > (aligned_request_size + STRUCT_SIZE))
+            {
+                //put in between, return pointer to beginning of memory (results of create_struct + STRUCT_SIZE)
+            }
+            // update pointers 
+        }
+        //Case 1b: we must add struct onto end of heap
 
-    //iterate through every struct
+        // add the struc to the end 
+            // check if you increment: increment heap 
+        // create the struct 
 
-    //Case 1a: there is size in our heap to allocate the chunk (between or at end)
+    }
 
-    //Case 1b: there is no space in our heap (between or at end) sbrk here
-
-    return begin_ptr;
+    return HEAP_BEGIN_PTR;
 
 }
 
-struct alloc_info * create_struct(void * starting_address, size_t size, struct alloc_info *prev_info, struct alloc_info *next_info)
+/*
+* Create struct alloc_info with memory data allocation in the heap. 
+*/
+struct alloc_info *create_struct(void *starting_address, size_t size, struct alloc_info *prev_info, struct alloc_info *next_info)
 {
-    
-    struct alloc_info **pointer_math; 
+    struct alloc_info *metadata;
 
-    *((size_t*)starting_address) = size;
+    metadata = starting_address;
 
-    write(1, pointer_to_hex_le(starting_address), 16);
-    write(1, "= starting address \n starting address+8 =", sizeof("= starting address \n starting address+8 ="));
-    pointer_math = ((size_t*)(starting_address)) + 1;
-    write(1, pointer_to_hex_le(pointer_math), 16);
-    write(1,"\n",sizeof("\n"));
-
-    // *((struct alloc_info**) pointer_math) = next_info;
-
-    
-
+    metadata->size = size;
+    metadata->prev_info = prev_info;
+    metadata->next_info = next_info;
 
     // struct alloc_info *metadata = (struct alloc_info *) starting_address; 
     // write(1, uint64_to_string(metadata->size), 8); 
-    write(1,"\n",sizeof("\n"));
+    // write(1,"\n",sizeof("\n"));
     //pointer_math = ((struct alloc_info**)(starting_address)) + 1;
     // write(1, pointer_to_hex_le(metadata->prev_info), 16);
+    // write(1,"\n",sizeof("\n"));
     // write(1, pointer_to_hex_le(metadata->next_info), 16);
+    // write(1,"\n",sizeof("\n"));
     return metadata; 
+}
+
+void increment_heap(size_t aligned_size, int space_left)
+{
+    sbrk(INCREMENT_BY); // set this to sbrk_val to see what is stored there
+    space_left += INCREMENT_BY;
+
+    // If size is greater than INCREMENT_BY, grow heap as necessary 
+    while(aligned_size + STRUCT_SIZE > space_left)
+    {
+        sbrk(INCREMENT_BY);
+        space_left += INCREMENT_BY;
+    }
 }
 
 /*
@@ -125,7 +150,7 @@ struct alloc_info * create_struct(void * starting_address, size_t size, struct a
  *   printf says:            0x000055c0fe64a2a0
  */
 
-char * pointer_to_hex_le(void *ptr)
+char *pointer_to_hex_le(void *ptr)
 {
     static char hex[sizeof(ptr) * 2 + 1];
     char hex_chars[] = "0123456789abcdef";
@@ -161,8 +186,7 @@ char * pointer_to_hex_le(void *ptr)
  *
  */
 
-char *
-uint64_to_string(uint64_t n)
+char *uint64_to_string(uint64_t n)
 {
     static char s[32] = "0000000000000000000000000000000\0";
     int i;
