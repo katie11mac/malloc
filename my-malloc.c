@@ -11,15 +11,14 @@
 #include <string.h>
 #include <limits.h> // need for printing size_t
 
-#define INCREMENT_BY 96
-#define STRUCT_SIZE 32
-#define ALIGN_BY 16
+#define INCREMENT_BY 160
 static void *HEAP_BEGIN_PTR = NULL; // starts as NULL to know when heap has not been intialized
 static struct alloc_info *FIRST_STRUCT = NULL; 
 
 void *malloc(size_t size);
 struct alloc_info *create_struct(void *starting_address, size_t size, struct alloc_info *next_info, struct alloc_info *prev_info); 
 void increment_heap(size_t aligned_size, int space_left); 
+int align16(int size);
 char *pointer_to_hex_le(void *ptr); // delete
 char *uint64_to_string(uint64_t n);
 
@@ -54,15 +53,16 @@ int main(int argc, char *argv[]){
 void * malloc(size_t size)
 {
     size_t aligned_request_size; 
-    struct alloc_info *metadata;
+    int struct_size_aligned;
     // SHOULD THERE BE A MAX / HOW DO YOU KNOW WHEN YOU'VE REACHED MAX? 
 
     // Relevant info to the loop
     struct alloc_info *next_alloc_ptr, *curr_alloc_ptr, *new_alloc_ptr; 
-    int space_available; 
+    size_t space_available; 
     size_t curr_align_size; 
 
-    aligned_request_size = (size/ALIGN_BY + 1) * ALIGN_BY; //round size to be divisible by 16
+    aligned_request_size = align16(size);
+    struct_size_aligned = align16(sizeof(struct alloc_info));
 
     // Case 0: Heap has not been intialized
     if(HEAP_BEGIN_PTR == NULL)
@@ -71,17 +71,17 @@ void * malloc(size_t size)
          
         increment_heap(aligned_request_size, 0); 
 
-        metadata = create_struct(HEAP_BEGIN_PTR, size, NULL, NULL); 
-        FIRST_STRUCT = metadata; 
+        FIRST_STRUCT = create_struct(HEAP_BEGIN_PTR, size, NULL, NULL); 
+
         write(1, pointer_to_hex_le(FIRST_STRUCT), 16); 
         write(1,"\n",sizeof("\n"));
-        return FIRST_STRUCT + STRUCT_SIZE; 
+
+        return (char*)(FIRST_STRUCT) + struct_size_aligned; 
     }
 
     //Case 1: Heap has been initialized
     else
     {
-        //metadata may not be initialized, so maybe start at the first allocation, which is HEAP_BEGIN_PTR
         // what if the person frees the HEAP_BEGIN_PTR 
         curr_alloc_ptr = FIRST_STRUCT; 
         next_alloc_ptr = FIRST_STRUCT->next_info; 
@@ -89,42 +89,48 @@ void * malloc(size_t size)
         //iterate through every struct
         while(next_alloc_ptr != NULL)
         {
-            curr_align_size = (curr_alloc_ptr->size/ALIGN_BY + 1) * ALIGN_BY;
-            space_available = ((next_alloc_ptr - curr_alloc_ptr) - STRUCT_SIZE) - curr_align_size;
+            curr_align_size = align16(curr_alloc_ptr->size);
+            space_available = (next_alloc_ptr - curr_alloc_ptr + struct_size_aligned - curr_align_size);
             
              //Case 1a: there is size in our heap to allocate the chunk between
-            if(space_available > (aligned_request_size + STRUCT_SIZE))
+            if(space_available > (aligned_request_size + struct_size_aligned))
             {
                 // Place struct in between existing allocations
-                new_alloc_ptr = create_struct(curr_alloc_ptr + STRUCT_SIZE + curr_align_size, size, curr_alloc_ptr, next_alloc_ptr); 
+                new_alloc_ptr = create_struct(curr_alloc_ptr + struct_size_aligned + curr_align_size, size, curr_alloc_ptr, next_alloc_ptr); 
 
                 // Update current and next alloc info
                 curr_alloc_ptr->next_info = new_alloc_ptr; 
                 next_alloc_ptr->prev_info = new_alloc_ptr; 
 
-                return new_alloc_ptr + STRUCT_SIZE; // address of allocation 
+                return (char*)(new_alloc_ptr) + struct_size_aligned; // address of allocation 
             }
+            curr_alloc_ptr = next_alloc_ptr;
+            next_alloc_ptr = curr_alloc_ptr->next_info; 
         }
 
+       // write(1,"CASE 1B\n",sizeof("CASE 1B\n"));
         //Case 1b: Must add struct onto end of heap
-        curr_align_size = (curr_alloc_ptr->size/ALIGN_BY + 1) * ALIGN_BY;
-        space_available = (((struct alloc_info *)sbrk(0) - curr_alloc_ptr) - STRUCT_SIZE) - curr_align_size;
+        curr_align_size = align16(curr_alloc_ptr->size);
+        
+        space_available = ((struct alloc_info*)sbrk(0) - curr_alloc_ptr) - struct_size_aligned - curr_align_size;
+
         
         // Check if heap does not have enough space at the end 
-        if(space_available < (aligned_request_size + STRUCT_SIZE))
+        if(space_available < (aligned_request_size + struct_size_aligned))
         {
+            write(1,"NEED TO INCREMENT\n",sizeof("NEED TO INCREMENT\n"));
             increment_heap(aligned_request_size, space_available); 
         }
 
         // Place struct at end of heap 
-        new_alloc_ptr = create_struct(curr_alloc_ptr + STRUCT_SIZE + curr_align_size, size, curr_alloc_ptr, next_alloc_ptr); 
+        new_alloc_ptr = create_struct((char*)(curr_alloc_ptr) + struct_size_aligned + curr_align_size, size, curr_alloc_ptr, next_alloc_ptr); 
         
         // Update current pointer info
         curr_alloc_ptr->next_info = new_alloc_ptr;
 
     }
 
-    return new_alloc_ptr + STRUCT_SIZE; // address of allocation
+    return (char*)(new_alloc_ptr) + struct_size_aligned; // address of allocation
 
 }
 
@@ -158,12 +164,24 @@ void increment_heap(size_t aligned_size, int space_left)
     space_left += INCREMENT_BY;
 
     // If size is greater than INCREMENT_BY, grow heap as necessary 
-    while(aligned_size + STRUCT_SIZE > space_left)
+    while(aligned_size + align16(sizeof(struct alloc_info)) > space_left)
     {
         sbrk(INCREMENT_BY);
         space_left += INCREMENT_BY;
     }
 }
+
+/*
+* Rounds int to nearest larger power of 16
+*/
+int align16(int size)
+{
+    int align_by;
+    align_by = 16;
+
+    return (size/align_by + 1) * align_by; //round size to be divisible by 16
+}
+
 
 /*
  * pointer_to_hex_le.c
