@@ -1,8 +1,11 @@
 my-malloc.so: my-malloc.c
 	gcc -g -Wall -pedantic -rdynamic -shared -fPIC -o my-malloc.so my-malloc.c
 
-.PHONY: run
-run: my-malloc.so
+test-malloc: test-malloc.c my-malloc.so
+	gcc -Wall -pedantic -o test-malloc test-malloc.c
+
+.PHONY: run_ls
+run_ls: my-malloc.so
 	LD_PRELOAD=./my-malloc.so ls
 
 .PHONY: debug
