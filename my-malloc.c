@@ -13,12 +13,13 @@
 
 #define INCREMENT_BY 160
 static void *HEAP_BEGIN_PTR = NULL; // starts as NULL to know when heap has not been intialized
+static void *HEAP_END_PTR = NULL; 
 static struct alloc_info *FIRST_STRUCT = NULL; 
 
 void *malloc(size_t size);
 struct alloc_info *create_struct(void *starting_address, size_t size, struct alloc_info *next_info, struct alloc_info *prev_info); 
-void increment_heap(size_t aligned_size, int space_left); 
-int align16(int size);
+void increment_heap(size_t aligned_size, size_t space_left); 
+size_t align16(size_t size);
 char *pointer_to_hex_le(void *ptr); // delete
 char *uint64_to_string(uint64_t n);
 
@@ -38,7 +39,7 @@ int main(int argc, char *argv[]){
 
     // TEST 1: Unitialized heap (case 0) and requested size within the size of heap 
     // TEST 1: Unitilaized heap (case 0) and requested size outside size of heap (need to increment again) (change to 150)
-    address = malloc(150); // address is 32 after starter pointer 
+    address = malloc(9); // address is 32 after starter pointer 
     write(1,"address of malloc(9):  ",sizeof("address of malloc(9):  "));
     write(1, pointer_to_hex_le(address), 16); 
     write(1,"\n\n",sizeof("\n\n"));
@@ -68,7 +69,7 @@ int main(int argc, char *argv[]){
 void * malloc(size_t size)
 {
     size_t aligned_request_size; 
-    int struct_size_aligned;
+    size_t struct_size_aligned;
     // SHOULD THERE BE A MAX / HOW DO YOU KNOW WHEN YOU'VE REACHED MAX? 
 
     // Relevant info to the loop
@@ -84,7 +85,12 @@ void * malloc(size_t size)
     {
         write(1,"INITIALIZING HEAP\n",sizeof("INITIALIZING HEAP\n"));
 
-        HEAP_BEGIN_PTR = sbrk(0);
+        // Initialize HEAP_BEGIN_PTR and handle errors
+        if((HEAP_BEGIN_PTR = sbrk(0)) == (void *)-1)
+        {
+            perror("sbrk"); 
+            exit(1); 
+        }
          
         increment_heap(aligned_request_size, 0); 
 
@@ -108,8 +114,10 @@ void * malloc(size_t size)
         while(next_alloc_ptr != NULL)
         {
             curr_align_size = align16(curr_alloc_ptr->size);
-            space_available = (next_alloc_ptr - curr_alloc_ptr + struct_size_aligned - curr_align_size);
             
+            // SHOULD PROBABLY CHECK LINE BELOW TOO
+            space_available = (next_alloc_ptr - curr_alloc_ptr + struct_size_aligned - curr_align_size);
+
              //Case 1a: there is size in our heap to allocate the chunk between
             if(space_available > (aligned_request_size + struct_size_aligned))
             {
@@ -130,17 +138,18 @@ void * malloc(size_t size)
         //Case 1b: Must add struct onto end of heap
         curr_align_size = align16(curr_alloc_ptr->size);
         
-        space_available = ((struct alloc_info*)sbrk(0) - curr_alloc_ptr) - struct_size_aligned - curr_align_size;
+        // DON'T HAVE TO USE sbrk(0) here anymore; can use the global pointer
+        space_available = ((struct alloc_info*)HEAP_END_PTR - curr_alloc_ptr) - struct_size_aligned - curr_align_size;
         
         // write(1,"sbrk: ",sizeof("sbrk: "));
-        // write(1, pointer_to_hex_le((struct alloc_info*)sbrk(0)), 16); 
+        // write(1, pointer_to_hex_le(HEAP_END_PTR), 16); 
         // write(1,"\n",sizeof("\n"));
 
         // write(1,"curr alloc ptr: ",sizeof("curr alloc ptr: "));
         // write(1, pointer_to_hex_le(curr_alloc_ptr), 16); 
         // write(1,"\n",sizeof("\n"));
 
-        // write(1,uint64_to_string(((struct alloc_info*)sbrk(0) - curr_alloc_ptr)), 16);
+        // write(1,uint64_to_string((struct alloc_info*)HEAP_END_PTR - curr_alloc_ptr), 16);
         // write(1," <- diff betwen sbrk and curr alloc ptr\n",sizeof("<- diff betwen sbrk and curr alloc ptr\n"));
 
         // write(1,uint64_to_string((aligned_request_size)), 16);
@@ -192,11 +201,17 @@ struct alloc_info *create_struct(void *starting_address, size_t size, struct all
     return metadata; 
 }
 
-void increment_heap(size_t aligned_size, int space_left)
+void increment_heap(size_t aligned_size, size_t space_left)
 {
     write(1,"INCREMENTING HEAP\n",sizeof("INCREMENTING HEAP\n"));
 
-    sbrk(INCREMENT_BY); // set this to sbrk_val to see what is stored there
+    // set this to sbrk_val to see what is stored there
+    if(sbrk(INCREMENT_BY) == (void *)-1)
+    {
+        perror("sbrk"); 
+        exit(1); 
+    }
+
     space_left += INCREMENT_BY;
 
     // If size is greater than INCREMENT_BY, grow heap as necessary 
@@ -204,17 +219,34 @@ void increment_heap(size_t aligned_size, int space_left)
     {
         write(1,"INCREMENTING MORE\n",sizeof("INCREMENTING MORE\n"));
 
-        sbrk(INCREMENT_BY);
+        if(sbrk(INCREMENT_BY) == (void *)-1)
+        {
+            perror("sbrk"); 
+            exit(1); 
+        }
+
         space_left += INCREMENT_BY;
     }
+
+    // Update HEAP_END_PTR and handle errors
+    if((HEAP_END_PTR = sbrk(0)) == (void *)-1)
+    {
+        perror("sbrk"); 
+        exit(1); 
+    }
+
+    write(1,"HEAP_END_PTR: ",sizeof("HEAP_END_PTR: "));
+    write(1, pointer_to_hex_le(HEAP_END_PTR), 16); 
+    write(1,"\n",sizeof("\n"));
+    
 }
 
 /*
-* Rounds int to nearest larger power of 16
+* Rounds size_t to nearest larger power of 16
 */
-int align16(int size)
+size_t align16(size_t size)
 {
-    int align_by;
+    size_t align_by;
     align_by = 16;
 
     return (size/align_by + 1) * align_by; //round size to be divisible by 16
