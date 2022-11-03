@@ -12,10 +12,10 @@ char *uint64_to_string(uint64_t n);
 
 int main(int argc, char *argv[]){
 
-    void *address; 
-    uint64_t *s;
+    void *address, *address2, *address3, *address4; 
+    // uint64_t *s;
 
-    *s = 5; 
+    // *s = 5; 
 
     // TEST 1: Unitialized heap (case 0) and requested size within the size of heap 
     // TEST 1: Unitilaized heap (case 0) and requested size outside size of heap (need to increment again) (change to 150)
@@ -24,28 +24,51 @@ int main(int argc, char *argv[]){
     write(1, pointer_to_hex_le(address), 16); 
     write(1,"\n\n",sizeof("\n\n"));
 
-    memcpy(address, s, 16);
-    write(1, uint64_to_string(*s), 16); //this should give us "hello"
+    // memcpy(address, s, 16);
+    // write(1, uint64_to_string(*s), 16); //this should give us "hello"
 
     // write(1,"freeing our malloc(9)",sizeof("freeing our malloc(9)"));
     // write(1,"\n\n",sizeof("\n\n"));
     // free(address);
 
     // TEST 2: Initialized heap (case 1) and requested size within the size of heap (added at end)
-    address = malloc(17); // address is 16 (size of previous malloc) + 32 (size of struct) after previous malloc (48)
+    address2 = malloc(17); // address is 16 (size of previous malloc) + 32 (size of struct) after previous malloc (48)
     write(1,"address of malloc(17): ",sizeof("address of malloc(17): "));
-    write(1, pointer_to_hex_le(address), 16); 
+    write(1, pointer_to_hex_le(address2), 16); 
     write(1,"\n\n",sizeof("\n\n"));
 
     // TEST 3: Initialized heap (case 1) and requested size larger than size of heap 
     //          Needs to increment and add at the end 
-    address = malloc(50); // address is 32 (size of previous malloc) + 32 (size of struct) after previous malloc (64)
+    address3 = malloc(50); // address is 32 (size of previous malloc) + 32 (size of struct) after previous malloc (64)
     write(1,"address of malloc(50): ",sizeof("address of malloc(50): "));
-    write(1, pointer_to_hex_le(address), 16);  
+    write(1, pointer_to_hex_le(address3), 16);  
     // *** THERE IS SOMETHING WEIRD HERE BECAUSE IT DOESN'T SAY THAT IT'S INCREMENTING
     write(1,"\n\n",sizeof("\n\n"));
 
     // need free() to test if we place allocations in between correctly
+
+    write(1,"freeing our malloc(17)",sizeof("freeing our malloc(17)"));
+    write(1,"\n\n",sizeof("\n\n"));
+    free(address2);
+
+    address2 = malloc(20); // address is 16 (size of previous malloc) + 32 (size of struct) after previous malloc (48)
+    write(1,"address of malloc(20): ",sizeof("address of malloc(20): "));
+    write(1, pointer_to_hex_le(address2), 16); 
+    write(1,"\n\n",sizeof("\n\n"));
+
+    // write(1, uint64_to_string(malloc_usable_size(address)), 16);
+    // write(1,"\n",sizeof("\n"));
+
+    // write(1, uint64_to_string(malloc_usable_size(address2)), 16);
+    // write(1,"\n",sizeof("\n"));
+
+    // write(1, uint64_to_string(malloc_usable_size(address3)), 16);
+    // write(1,"\n",sizeof("\n"));
+
+    address4 = calloc(30, 10);
+    write(1,"address of calloc(30, 10): ",sizeof("address of calloc(30, 10): "));
+    write(1, pointer_to_hex_le(address4), 16);
+    write(1,"\n\n",sizeof("\n\n"));
 
     return 0;
 }
