@@ -11,7 +11,7 @@
 #include <string.h>
 #include <limits.h> // need for printing size_t
 
-#define INCREMENT_BY 160
+#define INCREMENT_BY 800
 static void *HEAP_BEGIN_PTR = NULL; // starts as NULL to know when heap has not been intialized
 static void *HEAP_END_PTR = NULL;
 static struct alloc_info *FIRST_STRUCT = NULL;
@@ -104,9 +104,6 @@ void * malloc(size_t size)
             
             // SHOULD PROBABLY CHECK LINE BELOW TOO
             space_available = get_space_available(next_alloc_ptr, curr_alloc_ptr, curr_alloc_ptr->size);
-            write(1,"space available: ",sizeof("space available: "));
-            write(1,uint64_to_string(space_available), 16);
-            write(1,"\n",sizeof("\n"));
 
              //Case 1a: there is size in our heap to allocate the chunk between
             if(space_available >= (aligned_request_size + struct_size_aligned))
@@ -282,7 +279,6 @@ void free(void *ptr)
 
 void *calloc(size_t nmemb, size_t size)
 {
-    // will need memset
     void *malloc_address;
     size_t space_needed;
 
@@ -307,7 +303,7 @@ void *calloc(size_t nmemb, size_t size)
 void *realloc(void *ptr, size_t size)
 {
     void *new_ptr;
-    struct alloc_info *og_alloc_ptr;
+    struct alloc_info *og_alloc_ptr, *og_next_alloc_ptr;
     size_t space_available;
 
 
@@ -331,7 +327,20 @@ void *realloc(void *ptr, size_t size)
         // Size is not 0
         else
         {
-            space_available = get_space_available(og_alloc_ptr, og_alloc_ptr->next_info, 0); 
+            og_next_alloc_ptr = og_alloc_ptr->next_info;
+            
+            if(og_next_alloc_ptr == NULL)
+            {
+                free(ptr);
+                new_ptr = malloc(size);
+                return new_ptr;
+            }
+
+            space_available = get_space_available(og_alloc_ptr->next_info, og_alloc_ptr, 0); 
+
+            write(1,"\nspace aval for realloc: ",sizeof("\nspace aval for realloc: "));
+            write(1, uint64_to_string(space_available), 16); 
+            write(1,"\n\n",sizeof("\n\n"));
         
             // Case 1b: Room to expand allocation in place 
             // if need to debug double check this 
@@ -369,20 +378,39 @@ size_t malloc_usable_size(void *ptr)
 */
 size_t align16(size_t size)
 {
-    size_t align_by;
+    size_t align_by, align_val;
     align_by = 16;
 
-    return (size/align_by + 1) * align_by; //round size to be divisible by 16
+    align_val = (size/align_by + 1) * align_by; 
+
+    if(size == 0)
+    {
+        align_val = 0;
+    }
+    return align_val; //round size to be divisible by 16
 }
 
-size_t get_space_available(struct alloc_info *left_ptr, struct alloc_info *right_ptr, size_t alloc_size)
+size_t get_space_available(struct alloc_info *next_ptr, struct alloc_info *curr_ptr, size_t alloc_size)
 {
-    size_t struct_size_aligned, alloc_size_aligned; 
+    size_t struct_size_aligned, alloc_size_aligned, space_available; 
 
     struct_size_aligned = align16(sizeof(struct alloc_info)); 
     alloc_size_aligned = align16(alloc_size); 
 
-    return (char*)left_ptr - (char*)right_ptr - struct_size_aligned - alloc_size_aligned; 
+    space_available = ((char*)next_ptr - (char*)curr_ptr) - struct_size_aligned - alloc_size_aligned;
+    
+    // write(1, uint64_to_string(alloc_size_aligned), 16); 
+    // write(1,"= alloc_size_aligned \n",sizeof("= alloc_size_aligned \n"));
+
+    // write(1,"\n leftptr-rightptr=",sizeof("\n leftptr-rightptr=")); 
+    // write(1, uint64_to_string((char*)left_ptr - (char*)right_ptr), 16); 
+
+    // write(1,"\n space_available=",sizeof("\n space_available=")); 
+    // write(1, uint64_to_string(space_available), 16); 
+    // //write(1,"freeing our malloc(9)",sizeof("freeing our malloc(9)"));
+    // write(1,"\n\n",sizeof("\n\n")); 
+
+    return space_available; 
 }
 
 
