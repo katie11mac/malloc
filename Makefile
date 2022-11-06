@@ -6,7 +6,7 @@ test-malloc: test-malloc.c my-malloc.so
 
 .PHONY: run_ls
 run_ls: my-malloc.so
-	LD_PRELOAD=./my-malloc.so ls
+	LD_PRELOAD=./my-malloc.so ls -l
 
 .PHONY: debug
 debug: my-malloc.so test-malloc
