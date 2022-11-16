@@ -39,7 +39,9 @@ struct alloc_info
 };
 
 /*
-* Malloc function: allocate size bytes and return a pointer to the allocated memory (not intialized)
+* Allocate size bytes and return a pointer to the allocated memory (not intialized)
+* On error, return NULL. 
+* NULL may also be returned by a successful call  to  malloc() with a size of zero.
 */
 void * malloc(size_t size)
 {
@@ -65,8 +67,8 @@ void * malloc(size_t size)
             // Initialize heap_begin_ptr and handle errors
             if((heap_begin_ptr = sbrk(0)) == (void *)-1)
             {
-                perror("sbrk"); 
-                exit(1); 
+                perror("sbrk");
+                exit(1);
             }
             
             increment_heap(aligned_request_size, 0); 
@@ -295,7 +297,11 @@ void free(void *ptr)
 }
 
 /*
-*
+* Allocate memory for an array of nmemb elements of size bytes each and return
+* a pointer to the allocated memory, which is set to zero. 
+* If nmemb or size is 0, then return NULL. 
+* If the multiplication of nmemb and size would result
+* in integer  overflow, then calloc() returns an error (NULL).
 */
 void *calloc(size_t nmemb, size_t size)
 {
