@@ -75,7 +75,6 @@ int main(int argc, char *argv[])
     address5 = malloc(20); 
     // EXPECTED RESULTS: address5 = address4 + 32 (size of prev malloc) + 32 (size of struct)
     //                            = address4 + 64
-    // !GIVES US:                 = address4 + 80
     write(1,"address5 (malloc 20): ",sizeof("address5 (malloc 20): "));
     write(1, pointer_to_hex_le(address5), 16); 
     write(1,"\n",sizeof("\n"));
