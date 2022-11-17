@@ -3,6 +3,17 @@ Authors: Lindsey Schweitzer and Katie Macalintal
 Known Bugs: 
 - segfault with ls -l
 
+GDB notes
+- break my-malloc.c:44 
+- make break point y 
+- gdb feature set a break point but the first n times break point is hit ignore it 
+- LD prelod 
+- ls -l of single file : 204th call (173th call to malloc) fails 
+
+- look back at realloc: we are mallocing into allocated memory (malloc, memcpy, free)
+
+- Clean up and submit 
+
 Resources:
 https://www.tutorialspoint.com/c_standard_library/c_function_memset.htm
 https://www.tutorialspoint.com/cprogramming/c_pointer_to_pointer.htm
