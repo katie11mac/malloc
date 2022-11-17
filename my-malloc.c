@@ -53,6 +53,10 @@ void * malloc(size_t size)
     size_t space_available; 
     size_t curr_align_size; 
 
+    write(1,"first struct: ",sizeof("first struct: "));
+    write(1, pointer_to_hex_le(first_struct), 16);
+    write(1,"\n",sizeof("\n"));
+
     aligned_request_size = align16(size);
     struct_size_aligned = align16(sizeof(struct alloc_info));
     
@@ -84,9 +88,14 @@ void * malloc(size_t size)
         return (void*)((char*)(first_struct) + struct_size_aligned); 
     }
 
+    // write(1, "space between first struct and begin: ", sizeof("space between first struct and begin: "));
+    // write(1, uint64_to_string((char*)first_struct - (char*)heap_begin_ptr), 16);
+    // write(1, "request size + struct size (aligned): ", sizeof("request size + struct size (aligned): "));
+    // write(1, uint64_to_string((char*)first_struct - (char*)heap_begin_ptr), 16);
+
     // Case 1: Heap has been initialized
     // Case 1a: If there is space at the beginning of the heap, place allocation there
-    if(((char*)first_struct - (char*)heap_begin_ptr) > (aligned_request_size + struct_size_aligned))
+    if(((char*)first_struct - (char*)heap_begin_ptr) >= (aligned_request_size + struct_size_aligned))
     {
         first_struct = create_alloc_info(heap_begin_ptr, size, NULL, first_struct);
         write(1, "space at beginning\n", sizeof("space at beginning\n"));
@@ -122,7 +131,7 @@ void * malloc(size_t size)
     space_available = get_space_available(heap_end_ptr, curr_alloc_ptr, curr_alloc_ptr->size);        
 
     // Check if heap does not have enough space at the end 
-    if(space_available < (aligned_request_size + struct_size_aligned))
+    if(space_available <= (aligned_request_size + struct_size_aligned))
     {
         if(increment_heap(aligned_request_size, space_available) == NULL)
         {
@@ -252,7 +261,7 @@ void *calloc(size_t nmemb, size_t size)
     }
 
     // Check for size_t overflow 
-    if(nmemb > (SSIZE_MAX / size))
+    if(nmemb >= (SSIZE_MAX / size)) //> or >=
     {
        return NULL;
     }
