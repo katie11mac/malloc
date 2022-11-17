@@ -286,15 +286,12 @@ void *realloc(void *ptr, size_t size)
     struct alloc_info *og_alloc_ptr, *og_next_alloc_ptr;
     size_t space_available;
 
+    // SHOULD WE STILL CHECK SUCCESS OF MALLOC FOR MORE CONSISE CODE? 
+
     // Case 0: When ptr is NULL, act like malloc
     if(ptr == NULL)
     {
-        if((new_ptr = malloc(size)) == NULL)
-        {
-            return NULL;
-        }
-
-        return new_ptr;
+        return malloc(size); 
     }
     
     
@@ -305,6 +302,7 @@ void *realloc(void *ptr, size_t size)
         return NULL; 
     }
 
+
     // Case 2: ptr not NULL and size is not 0
     og_alloc_ptr = (struct alloc_info *)((char*)ptr - align16(sizeof(struct alloc_info)));
     og_next_alloc_ptr = og_alloc_ptr->next_info;
@@ -312,11 +310,22 @@ void *realloc(void *ptr, size_t size)
     // Case 2a: Reallocing on the last allocation in the heap
     if(og_next_alloc_ptr == NULL)
     {
-        free(ptr);
+        
         if((new_ptr = malloc(size)) == NULL)
         {
             return NULL;
         }
+
+        if(size >= og_alloc_ptr->size)
+        {
+            memcpy(new_ptr, ptr, og_alloc_ptr->size);
+        }
+        else
+        {
+            memcpy(new_ptr, ptr, size);
+        }
+        
+        free(ptr);
         return new_ptr;
     }
 
@@ -331,11 +340,22 @@ void *realloc(void *ptr, size_t size)
     }
 
     //Case 2bb: Not enough space, realloc at the end of the heap
-    free(ptr);
+    
     if((new_ptr = malloc(size)) == NULL)
     {
         return NULL;
     }
+
+    if(size >= og_alloc_ptr->size)
+    {
+        memcpy(new_ptr, ptr, og_alloc_ptr->size);
+    }
+    else
+    {
+        memcpy(new_ptr, ptr, size);
+    }
+
+    free(ptr);
 
     return new_ptr;
 }
@@ -360,12 +380,21 @@ size_t align16(size_t size)
     size_t align_by, align_val;
     align_by = 16;
 
-    align_val = (size/align_by + 1) * align_by;
-
     if(size == 0)
     {
         align_val = 0;
     }
+    
+    if(size % 16 == 0)
+    {
+        align_val = size; 
+    }
+    else
+    {
+        align_val = (size/align_by + 1) * align_by;
+    }
+    
+
 
     return align_val;
 }
