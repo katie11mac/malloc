@@ -11,7 +11,7 @@
 #include <string.h>
 #include <limits.h>
 
-#define INCREMENT_BY 800
+#define INCREMENT_BY 160
 static void *heap_begin_ptr = NULL;
 static void *heap_end_ptr = NULL;
 static struct alloc_info *first_struct = NULL;
@@ -48,7 +48,7 @@ void * malloc(size_t size)
     size_t aligned_request_size;
     size_t struct_size_aligned;
 
-    // Relevant info to the loop
+    // Info relevant to the loop
     struct alloc_info *next_alloc_ptr, *curr_alloc_ptr, *new_alloc_ptr; 
     size_t space_available; 
     size_t curr_align_size; 
@@ -56,7 +56,7 @@ void * malloc(size_t size)
     aligned_request_size = align16(size);
     struct_size_aligned = align16(sizeof(struct alloc_info));
     
-    //check if malloc is called with size=0
+    // Check if malloc is called with size = 0
     if(size == 0)
     {
         return NULL;
@@ -72,69 +72,69 @@ void * malloc(size_t size)
             {
                 return NULL;
             }
-            
-            increment_heap(aligned_request_size, 0); 
+
+            if (increment_heap(aligned_request_size, 0) == NULL)
+            {
+                return NULL;
+            }
         }
 
         first_struct = create_alloc_info(heap_begin_ptr, size, NULL, NULL); 
-
+        write(1, "first struct initialized\n", sizeof("first struct initialized\n"));
         return (void*)((char*)(first_struct) + struct_size_aligned); 
     }
 
-    //Case 1: Heap has been initialized
-    else
+    // Case 1: Heap has been initialized
+    // Case 1a: If there is space at the beginning of the heap, place allocation there
+    if(((char*)first_struct - (char*)heap_begin_ptr) > (aligned_request_size + struct_size_aligned))
     {
-
-        // Case 1a: If there is space at the beginning of the heap, place allocation there
-        if(((char*)first_struct - (char*)heap_begin_ptr) > (aligned_request_size + struct_size_aligned))
-        {
-            first_struct = create_alloc_info(heap_begin_ptr, size, NULL, first_struct);
-
-            return (void*)((char*)(first_struct) + struct_size_aligned);
-        }
-
-        curr_alloc_ptr = first_struct; 
-        next_alloc_ptr = first_struct->next_info; 
-        
-        //Case 1b: Check if allocation can be placed in between previous allocations
-        while(next_alloc_ptr != NULL)
-        {
-            curr_align_size = align16(curr_alloc_ptr->size);
-            
-            space_available = get_space_available(next_alloc_ptr, curr_alloc_ptr, curr_alloc_ptr->size);
-
-            //Case 1a: there is size in our heap to allocate the chunk between
-            if(space_available >= (aligned_request_size + struct_size_aligned))
-            {
-                // Place struct in between existing allocations
-                new_alloc_ptr = create_alloc_info((char*)curr_alloc_ptr + struct_size_aligned + curr_align_size, size, curr_alloc_ptr, next_alloc_ptr); 
-
-                // address of allocation
-                return (void*)((char*)(new_alloc_ptr) + struct_size_aligned);  
-            }
-
-            // Increment for the loop
-            curr_alloc_ptr = next_alloc_ptr;
-            next_alloc_ptr = next_alloc_ptr->next_info; 
-        }
-       
-        //Case 1c: Must add struct onto end of heap
-        curr_align_size = align16(curr_alloc_ptr->size);
-        
-        space_available = get_space_available(heap_end_ptr, curr_alloc_ptr, curr_alloc_ptr->size);        
-
-        // Check if heap does not have enough space at the end 
-        if(space_available < (aligned_request_size + struct_size_aligned))
-        {
-            increment_heap(aligned_request_size, space_available); //print statement in this function
-        }
-
-        // Place struct at end of heap 
-        new_alloc_ptr = create_alloc_info((char*)(curr_alloc_ptr) + struct_size_aligned + curr_align_size, size, curr_alloc_ptr, next_alloc_ptr); 
-    
+        first_struct = create_alloc_info(heap_begin_ptr, size, NULL, first_struct);
+        write(1, "space at beginning\n", sizeof("space at beginning\n"));
+        return (void*)((char*)(first_struct) + struct_size_aligned);
     }
 
-    return (void*)((char*)(new_alloc_ptr) + struct_size_aligned); // address of allocation
+    curr_alloc_ptr = first_struct; 
+    next_alloc_ptr = first_struct->next_info; 
+    
+    //Case 1b: Check if allocation can be placed in between previous allocations
+    while(next_alloc_ptr != NULL)
+    {
+        curr_align_size = align16(curr_alloc_ptr->size);
+        space_available = get_space_available(next_alloc_ptr, curr_alloc_ptr, curr_alloc_ptr->size);
+
+        //Case 1ba: there is size in our heap to allocate the chunk between
+        if(space_available >= (aligned_request_size + struct_size_aligned))
+        {
+            // Place struct in between existing allocations
+            new_alloc_ptr = create_alloc_info((char*)curr_alloc_ptr + struct_size_aligned + curr_align_size, size, curr_alloc_ptr, next_alloc_ptr); 
+            write(1, "space in between structs\n", sizeof("space in between structs\n"));
+            // address of allocation
+            return (void*)((char*)(new_alloc_ptr) + struct_size_aligned);  
+        }
+
+        // Increment for the loop
+        curr_alloc_ptr = next_alloc_ptr;
+        next_alloc_ptr = next_alloc_ptr->next_info; 
+    }
+    
+    //Case 1bb: Must add struct onto end of heap
+    curr_align_size = align16(curr_alloc_ptr->size);
+    space_available = get_space_available(heap_end_ptr, curr_alloc_ptr, curr_alloc_ptr->size);        
+
+    // Check if heap does not have enough space at the end 
+    if(space_available < (aligned_request_size + struct_size_aligned))
+    {
+        if(increment_heap(aligned_request_size, space_available) == NULL)
+        {
+            return NULL;
+        }
+    }
+
+    // Place struct at end of heap 
+    new_alloc_ptr = create_alloc_info((char*)(curr_alloc_ptr) + struct_size_aligned + curr_align_size, size, curr_alloc_ptr, next_alloc_ptr); 
+    write(1, "placed at end\n", sizeof("placed at end\n"));
+    // Address of allocation
+    return (void*)((char*)(new_alloc_ptr) + struct_size_aligned); 
 }
 
 /*
@@ -150,12 +150,13 @@ struct alloc_info *create_alloc_info(void *starting_address, size_t size, struct
     metadata->prev_info = prev_info;
     metadata->next_info = next_info;
 
-    // Change alloc info for next or previous respectively
+    // Update pointer of prev_info->next_info if provided
     if(prev_info != NULL)
     {
         prev_info->next_info = metadata;
     }
 
+    // Update pointer of next_info->prev_info if provided
     if(next_info != NULL)
     {
         next_info->prev_info = metadata;
@@ -165,20 +166,13 @@ struct alloc_info *create_alloc_info(void *starting_address, size_t size, struct
 }
 
 /*
-* Increment the heap, in other words move the break, until there is 
+* Increment the heap (move the break) until there is 
 * enough space to store a requested allocation of aligned_size. 
 */
 void *increment_heap(size_t aligned_size, size_t space_left)
 {
-    // set this to sbrk_val to see what is stored there
-    if(sbrk(INCREMENT_BY) == (void *)-1)
-    {
-        return NULL;
-    }
 
-    space_left += INCREMENT_BY;
-
-    // If size is greater than INCREMENT_BY, grow heap as necessary 
+    // If align size requested and struct size is greater than INCREMENT_BY, grow heap as necessary 
     while(aligned_size + align16(sizeof(struct alloc_info)) > space_left)
     {
         if(sbrk(INCREMENT_BY) == (void *)-1)
@@ -209,30 +203,30 @@ void free(void *ptr)
     
     if(ptr != NULL)
     {
-        //move ptr to beginning of struct
+        // Move ptr to beginning of struct
         curr_alloc_ptr = (struct alloc_info *)((char*)ptr - align16(sizeof(struct alloc_info)));
 
         next_alloc_ptr = curr_alloc_ptr->next_info;
         prev_alloc_ptr = curr_alloc_ptr->prev_info;
 
-        //Case 0: curr is between two allocations
+        // Case 0: curr is between two allocations
         if(next_alloc_ptr != NULL && prev_alloc_ptr != NULL)
         {
             prev_alloc_ptr->next_info = next_alloc_ptr;
             next_alloc_ptr->prev_info = prev_alloc_ptr;
         }
-        //Case 1: curr is at end of allocations
+        // Case 1: curr is at end of allocations
         else if(next_alloc_ptr == NULL && prev_alloc_ptr != NULL)
         {
             prev_alloc_ptr->next_info = NULL;
         }
-        //Case 2: curr is first allocation in heap
+        // Case 2: curr is first allocation in heap
         else if(next_alloc_ptr != NULL && prev_alloc_ptr == NULL)
         {
             first_struct = next_alloc_ptr;
             next_alloc_ptr->prev_info = NULL;
         }
-        //Case 3: curr is only allocation in heap
+        // Case 3: curr is only allocation in heap
         else
         {
             first_struct = NULL;
@@ -257,13 +251,14 @@ void *calloc(size_t nmemb, size_t size)
         return NULL; 
     }
 
-    // check for size_t overflow 
+    // Check for size_t overflow 
     if(nmemb > (SSIZE_MAX / size))
     {
        return NULL;
     }
 
     space_needed = nmemb*size;
+
     if((malloc_address = malloc(space_needed)) == NULL)
     {
         return NULL;
@@ -293,20 +288,19 @@ void *realloc(void *ptr, size_t size)
         return new_ptr;
     }
     
-    // Case 1: When ptr is not NULL
     
-    // Case 1a: When size is 0, act like free 
+    // Case 1: When ptr is not NULL and size is 0, act like free 
     if(size == 0)
     {
         free(ptr);
         return NULL; 
     }
 
-    // Size is not 0
+    // Case 2: ptr not NULL and size is not 0
     og_alloc_ptr = (struct alloc_info *)((char*)ptr - align16(sizeof(struct alloc_info)));
     og_next_alloc_ptr = og_alloc_ptr->next_info;
     
-    // Trying to realloc at the end (reallocing on the last allocation in the heap)
+    // Case 2a: Reallocing on the last allocation in the heap
     if(og_next_alloc_ptr == NULL)
     {
         free(ptr);
@@ -317,17 +311,17 @@ void *realloc(void *ptr, size_t size)
         return new_ptr;
     }
 
-    // Check if there is space between allocations
+    // Case 2b: Reallocing on allocations in between other allocations 
     space_available = get_space_available(og_next_alloc_ptr, og_alloc_ptr, 0); 
 
-    // Case 1b: Room to expand allocation in place
+    // Case 2ba: Room to expand allocation in place
     if(space_available >= align16(size))
     {
         og_alloc_ptr->size = size; 
         return ptr; 
     }
 
-    //Case 1c: Not enough space, realloc at the end of the heap
+    //Case 2bb: Not enough space, realloc at the end of the heap
     free(ptr);
     if((new_ptr = malloc(size)) == NULL)
     {
