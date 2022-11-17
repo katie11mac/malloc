@@ -22,7 +22,10 @@ char *uint64_to_string(uint64_t n);
 */
 int main(int argc, char *argv[])
 {
-    void *address, *address2, *address3, *address4;
+    void *address, *address2, *address3, *address4, *address5, *address6;
+
+
+
 
     write(1,"-----TESTING MALLOC-----\n",sizeof("-----TESTING MALLOC-----\n"));
     // TEST 1: Unitialized heap (case 0) and requested size within the size of heap 
@@ -31,10 +34,6 @@ int main(int argc, char *argv[])
     write(1,"address  (malloc 9) : ",sizeof("address (malloc 9) : "));
     write(1, pointer_to_hex_le(address), 16);
     write(1,"\n",sizeof("\n"));
-
-    // LATER TESTS: Store stuff in the memory 
-    // memcpy(address, s, 16);
-    // free(address);
 
     // TEST 2: Initialized heap (case 1) and requested size within the size of heap (added at end)
     address2 = malloc(17); 
@@ -56,27 +55,71 @@ int main(int argc, char *argv[])
     address4 = malloc(32);
     // EXPECTED RESULTS: address4 = address3 + 64 (size of prev malloc) + 32 (size of struct)
     //                            = address3 + 96 
-
     write(1,"address4 (malloc 32): ",sizeof("address2 (malloc 32): "));
     write(1, pointer_to_hex_le(address4), 16);
     write(1,"\n",sizeof("\n"));
 
     write(1,"\n",sizeof("\n"));
-    // need free() to test if we place allocations in between correctly
 
-    // write(1,"freeing our malloc(17)",sizeof("freeing our malloc(17)"));
-    // write(1,"\n\n",sizeof("\n\n"));
-    // free(address2);
+    
 
-    // address2 = realloc(address2, 40); // address is 16 (size of previous malloc) + 32 (size of struct) after previous malloc (48)
-    // write(1,"address of realloc(40): ",sizeof("address of realloc(40): "));
-    // write(1, pointer_to_hex_le(address2), 16); 
-    // write(1,"\n\n",sizeof("\n\n"));
 
-    // address4 = calloc(30, 10);
-    // write(1,"address of calloc(30, 10): ",sizeof("address of calloc(30, 10): "));
-    // write(1, pointer_to_hex_le(address4), 16);
-    // write(1,"\n\n",sizeof("\n\n"));
+    
+    write(1,"-----TESTING FREE + MALLOC-----\n",sizeof("-----TESTING FREE + MALLOC-----\n"));
+    
+    // TEST 4: Free the first struct (address), malloc size too big for beginning gap, malloc size to fit in begining gap
+    write(1,"FREEING address\n",sizeof("FREEING address\n"));
+    free(address);
+
+    // malloc size too big for beginning gap (beginning gap can hold up to 16)
+    address5 = malloc(20); 
+    // EXPECTED RESULTS: address5 = address4 + 32 (size of prev malloc) + 32 (size of struct)
+    //                            = address4 + 64
+    // !GIVES US:                 = address4 + 80
+    write(1,"address5 (malloc 20): ",sizeof("address5 (malloc 20): "));
+    write(1, pointer_to_hex_le(address5), 16); 
+    write(1,"\n",sizeof("\n"));
+    
+    // malloc size that can fit in beginning gap (beginning gap can hold up to 16)
+    address = malloc(11);
+    write(1,"address  (malloc 11): ",sizeof("address  (malloc 11): "));
+    write(1, pointer_to_hex_le(address), 16);
+    write(1,"\n",sizeof("\n"));
+    // EXPECTED RESULTS: address = original address
+    write(1,"\n",sizeof("\n"));
+
+
+
+
+
+
+    write(1,"-----TESTING FREE + MALLOC w/ REALLOC-----\n",sizeof("-----TESTING FREE + MALLOC w/ REALLOC-----\n"));
+
+    // TEST 5: Free a middle struct, malloc too big for the gap, malloc to fit in the gap
+    write(1,"FREEING address2\n",sizeof("FREEING address2\n"));
+    realloc(address2, 0);
+
+    // malloc size too big for gap (gap can hold up to 32)
+    address6 = malloc(34); 
+    // EXPECTED RESULTS: address6 = address5 + 32 (size of prev malloc) + 32 (size of struct)
+    //                            = address5 + 64
+    write(1,"address6 (malloc 34): ",sizeof("address6 (malloc 34): "));
+    write(1, pointer_to_hex_le(address6), 16); 
+    write(1,"\n",sizeof("\n"));
+
+    // realloc on NULL, so malloc size that can fit in gap (gap can hold up to 32)
+    address2 = realloc(NULL, 11);
+    write(1,"address2 (malloc 20): ",sizeof("address  (malloc 20): "));
+    write(1, pointer_to_hex_le(address2), 16);
+    write(1,"\n",sizeof("\n"));
+    // EXPECTED RESULTS: address = original address2
+
+    
+
+
+
+    write(1,"-----TESTING REALLOC-----\n",sizeof("-----TESTING REALLOC-----\n"));    
+
 
     return 0;
 }
