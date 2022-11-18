@@ -310,7 +310,7 @@ void *realloc(void *ptr, size_t size)
 }
 
 /*
-* Returns  the  number  of  usable bytes  in the block pointed to by ptr. 
+* Returns the number of usable bytes in the block pointed to by ptr. 
 */
 size_t malloc_usable_size(void *ptr)
 {
