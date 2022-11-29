@@ -322,7 +322,7 @@ size_t malloc_usable_size(void *ptr)
 }
 
 /*
-* Rounds size_t to nearest larger power of 16
+* Rounds size_t to nearest larger multiple of 16
 */
 size_t align16(size_t size)
 {
