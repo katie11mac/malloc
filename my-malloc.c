@@ -50,7 +50,8 @@ void * malloc(size_t size)
     // Info relevant to the loop
     struct alloc_info *next_alloc_ptr, *curr_alloc_ptr, *new_alloc_ptr; 
     size_t space_available; 
-    size_t curr_align_size; 
+    size_t curr_align_size;
+    void *starting_address;
 
     aligned_request_size = align16(size);
     struct_size_aligned = align16(sizeof(struct alloc_info));
@@ -95,7 +96,8 @@ void * malloc(size_t size)
         // Case 1ba: there is size in our heap to allocate the chunk between
         if(space_available >= (aligned_request_size + struct_size_aligned)) {
             // Place struct in between existing allocations
-            new_alloc_ptr = create_alloc_info((char*)curr_alloc_ptr + struct_size_aligned + curr_align_size, size, curr_alloc_ptr, next_alloc_ptr);
+            starting_address = (char*)curr_alloc_ptr + struct_size_aligned + curr_align_size;
+            new_alloc_ptr = create_alloc_info(starting_address, size, curr_alloc_ptr, next_alloc_ptr);
             // address of allocation
             return (void*)((char*)(new_alloc_ptr) + struct_size_aligned);  
         }
@@ -117,7 +119,8 @@ void * malloc(size_t size)
     }
 
     // Place struct at end of heap 
-    new_alloc_ptr = create_alloc_info((char*)(curr_alloc_ptr) + struct_size_aligned + curr_align_size, size, curr_alloc_ptr, next_alloc_ptr);
+    starting_address = (char*)(curr_alloc_ptr) + struct_size_aligned + curr_align_size;
+    new_alloc_ptr = create_alloc_info(starting_address, size, curr_alloc_ptr, next_alloc_ptr);
     
     // Return address of allocation
     return (void*)((char*)(new_alloc_ptr) + struct_size_aligned); 
@@ -155,9 +158,12 @@ struct alloc_info *create_alloc_info(void *starting_address, size_t size, struct
 */
 void *increment_heap(size_t aligned_size, size_t space_left)
 {
+    size_t struct_size_aligned;
+
+    struct_size_aligned = align16(sizeof(struct alloc_info));
 
     // If align size requested and struct size is greater than INCREMENT_BY, grow heap as necessary 
-    while(aligned_size + align16(sizeof(struct alloc_info)) > space_left) {
+    while(aligned_size + struct_size_aligned > space_left) {
         if(sbrk(INCREMENT_BY) == (void *)-1) {
             return NULL;
         }
@@ -181,10 +187,13 @@ void *increment_heap(size_t aligned_size, size_t space_left)
 void free(void *ptr)
 {
     struct alloc_info *prev_alloc_ptr, *curr_alloc_ptr, *next_alloc_ptr; 
+    size_t struct_size_aligned;
+
+    struct_size_aligned = align16(sizeof(struct alloc_info));
     
     if(ptr != NULL) {
         // Move ptr to beginning of struct
-        curr_alloc_ptr = (struct alloc_info *)((char*)ptr - align16(sizeof(struct alloc_info)));
+        curr_alloc_ptr = (struct alloc_info *)((char*)ptr - struct_size_aligned);
 
         next_alloc_ptr = curr_alloc_ptr->next_info;
         prev_alloc_ptr = curr_alloc_ptr->prev_info;
@@ -249,6 +258,9 @@ void *realloc(void *ptr, size_t size)
     void *new_ptr;
     struct alloc_info *og_alloc_ptr, *og_next_alloc_ptr;
     size_t space_available;
+    size_t struct_size_aligned;
+
+    struct_size_aligned = align16(sizeof(struct alloc_info));
 
     // Case 0: When ptr is NULL, act like malloc
     if(ptr == NULL) {
@@ -262,7 +274,7 @@ void *realloc(void *ptr, size_t size)
     }
 
     // Case 2: ptr not NULL and size is not 0
-    og_alloc_ptr = (struct alloc_info *)((char*)ptr - align16(sizeof(struct alloc_info)));
+    og_alloc_ptr = (struct alloc_info *)((char*)ptr - struct_size_aligned);
     og_next_alloc_ptr = og_alloc_ptr->next_info;
     
     // Case 2a: Reallocing on the last allocation in the heap
@@ -315,8 +327,11 @@ void *realloc(void *ptr, size_t size)
 size_t malloc_usable_size(void *ptr)
 {
     struct alloc_info *curr_alloc_ptr; 
+    size_t struct_size_aligned;
 
-    curr_alloc_ptr = (struct alloc_info *)((char*)ptr - align16(sizeof(struct alloc_info)));
+    struct_size_aligned = align16(sizeof(struct alloc_info));
+
+    curr_alloc_ptr = (struct alloc_info *)((char*)ptr - struct_size_aligned);
     
     return (curr_alloc_ptr->size); // are we supposed to return the aligned size instead? since that's how many useable bytes there are
 }
