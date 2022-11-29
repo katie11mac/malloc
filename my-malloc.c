@@ -163,6 +163,16 @@ void *increment_heap(size_t aligned_size, size_t space_left)
     struct_size_aligned = align16(sizeof(struct alloc_info));
 
     // If align size requested and struct size is greater than INCREMENT_BY, grow heap as necessary 
+    
+    /* IDEA TO IMPROVE EFFICIENCY
+    Instead of a while loop, we can have an if statement that checks same condition.
+    Then calculate how many INCREMENT_BYs you would need in order to fit allocation 
+        (ie ((aligned_size + struct_size_aligned) / INCREMENT_BY) + 1) 
+    Then sbrk(INCREMENT_BY * number just calculated above)
+    NOTICE: Kind of similar thinking to the align16 method. 
+    */
+    //Idea to improve efficiency: 
+    //
     while(aligned_size + struct_size_aligned > space_left) {
         if(sbrk(INCREMENT_BY) == (void *)-1) {
             return NULL;
