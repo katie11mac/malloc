@@ -16,4 +16,4 @@ debug: my-malloc.so test-malloc
 
 .PHONY: clean
 clean:
-	rm -f my-malloc my-malloc.o
+	rm -f my-malloc.so test-malloc
