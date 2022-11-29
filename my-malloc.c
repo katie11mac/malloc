@@ -318,7 +318,7 @@ size_t malloc_usable_size(void *ptr)
 
     curr_alloc_ptr = (struct alloc_info *)((char*)ptr - align16(sizeof(struct alloc_info)));
     
-    return (curr_alloc_ptr->size); 
+    return (curr_alloc_ptr->size); // are we supposed to return the aligned size instead? since that's how many useable bytes there are
 }
 
 /*
