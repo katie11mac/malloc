@@ -333,7 +333,7 @@ size_t align16(size_t size)
         align_val = 0;
     }
     
-    if(size % 16 == 0) {
+    if(size % align_by == 0) {
         align_val = size; 
     } 
     else {
