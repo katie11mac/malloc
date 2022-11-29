@@ -159,26 +159,19 @@ struct alloc_info *create_alloc_info(void *starting_address, size_t size, struct
 void *increment_heap(size_t aligned_size, size_t space_left)
 {
     size_t struct_size_aligned;
+    size_t increment_count;
 
     struct_size_aligned = align16(sizeof(struct alloc_info));
 
-    // If align size requested and struct size is greater than INCREMENT_BY, grow heap as necessary 
-    
-    /* IDEA TO IMPROVE EFFICIENCY
-    Instead of a while loop, we can have an if statement that checks same condition.
-    Then calculate how many INCREMENT_BYs you would need in order to fit allocation 
-        (ie ((aligned_size + struct_size_aligned) / INCREMENT_BY) + 1) 
-    Then sbrk(INCREMENT_BY * number just calculated above)
-    NOTICE: Kind of similar thinking to the align16 method. 
-    */
-    //Idea to improve efficiency: 
-    //
-    while(aligned_size + struct_size_aligned > space_left) {
-        if(sbrk(INCREMENT_BY) == (void *)-1) {
+    // If align size requested and struct size is greater than INCREMENT_BY, grow heap as necessary
+    if(aligned_size + struct_size_aligned > space_left) {
+
+        increment_count = ((aligned_size + struct_size_aligned) / INCREMENT_BY) + 1;
+
+        if(sbrk(INCREMENT_BY * increment_count) == (void *)-1) {
             return NULL;
         }
 
-        space_left += INCREMENT_BY;
     }
 
     // Update heap_end_ptr and handle errors
@@ -338,6 +331,10 @@ size_t malloc_usable_size(void *ptr)
 {
     struct alloc_info *curr_alloc_ptr; 
     size_t struct_size_aligned;
+
+    if(ptr == NULL) {
+        return 0;
+    }
 
     struct_size_aligned = align16(sizeof(struct alloc_info));
 
